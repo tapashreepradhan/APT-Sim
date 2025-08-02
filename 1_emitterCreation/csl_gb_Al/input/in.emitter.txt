@@ -1,0 +1,82 @@
+# lammps script for generation of a bicrystal conical emitter 
+# with 5 nm radius
+# the script will generate three files: Material.txt, Vaccum.txt, Fixed.txt
+# Material.txt: contains the atoms of the emitter
+# Vaccum.txt: contains the lattice points of the vaccum region
+# Fixed.txt: contains the lattice points of the fixed region
+
+# initialization of the simulation settings
+echo                both
+units               metal
+dimension           3
+atom_style          atomic
+boundary            f f f
+
+# Atom definition for emitter geometry with a Sigma 5 (310) [001] CSL GB in FCC Al
+
+# full simulation box
+region             both block 0 400 0 400 0 800
+
+# outer emitter geometry
+region             shaft cylinder z 200 200 110 0 200
+region             top sphere 200 200 200 110
+region             apttip union 2 top shaft
+
+# inner solid region (material)
+region             innertop sphere 200 200 200 79.5
+region             innerbot cone z 200 200 100 80 0 200
+region             innertip union 2 innertop innerbot
+
+# fixing base layer
+region             special cylinder z 200 200 110 0 1
+region             bottom block 0 400 0 400 0 1
+
+# Define subregions for the bicrystal grains (split at x = 200)
+region             leftgrain block 0 200 0 400 0 800
+region             rightgrain block 200 400 0 400 0 800
+
+create_box         1 both  ## Change the value from 1 to 2 for two atom types
+
+# -- Emitter orientation: CSL GB (Sigma 5) bicrystal specimen for FCC Aluminum --
+
+# Left grain: using orientation from sample "upper"
+lattice            fcc 4.05 orient x  0 3 1 orient y  0 -1 3 orient z  1 0 0
+create_atoms       1 region leftgrain
+
+# Right grain: using orientation from sample "lower"
+lattice            fcc 4.05 orient x  0 3 -1 orient y  0 1 3 orient z  1 0 0
+create_atoms       1 region rightgrain
+
+# Force field settings
+pair_style         eam/alloy
+pair_coeff         * * ../../../resources/potentials/Al99.eam.alloy Al
+
+# group definitions to cut out the emitter
+group              sim region apttip
+group              kill subtract all sim
+delete_atoms       group kill
+
+group              material region innertip
+set                group material type/fraction 1 0.02 1394
+group              prefixed region special
+group              fixed subtract prefixed material
+group              vaccum subtract sim material fixed
+group              freeze region bottom
+
+# output configuration
+thermo_style       custom step temp press vol pe etotal pxx pyy pzz lx lz
+thermo_modify      lost ignore
+thermo             100
+
+# energy minimization of the structure
+fix                1 freeze setforce NULL NULL 0
+min_style          cg 
+#min_modify         line forcezero
+minimize           0.0 1e-10 50000 5000000
+
+# dumping the configuration settings into output files
+reset_timestep     0
+dump               1 material custom 1 Material.txt x y z type
+dump               2 vaccum custom 1 Vaccum.txt x y z type
+dump               3 fixed custom 1 Fixed.txt x y z type
+run                0

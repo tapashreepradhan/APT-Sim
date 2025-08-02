@@ -1,0 +1,51 @@
+# Ignore all .DS_Store files (macOS system files)
+**/.DS_Store
+
+# Ignore all 'lmp' files, no matter where they are
+**/lmp
+**/tapsim
+**/meshgen
+**/lmp_mpi
+
+# Ignore large binary simulation files
+*.bin
+*.dump
+*.dcd
+*.traj
+*.nc
+*.hdf5
+*.tar.gz
+
+# Ignore temporary files
+*.tmp
+*.swp
+.DS_Store
+
+3_TAPsimRun/simulations/*
+4_TAPSimPostRun/converted_grid_data/*
+5_TAPSimMD/*
+6_simulationAnalysis/ApproachB_flat/*
+7_pyevaporate/0/*
+7_pyevaporate/1/*
+7_pyevaporate/2/*
+7_pyevaporate/3/*
+7_pyevaporate/4/*
+7_pyevaporate/5/*
+7_pyevaporate/pyvaporate/__pycache__/*
+6_simulationAnalysis/Case2_Al
+6_simulationAnalysis/Case3_Al
+6_simulationAnalysis/Case2_W
+6_simulationAnalysis/Case3_W
+6_simulationAnalysis/Case2_CSL5
+6_simulationAnalysis/Case3_CSL5
+6_simulationAnalysis/scripts/__pycache__
+6_simulationAnalysis/Plots_AL100/
+6_simulationAnalysis/Plots_ALCSL5/
+6_simulationAnalysis/Plots_W100/
+2_validityChecks/Al_100/plots/
+2_validityChecks/W_100/plots/
+6_simulationAnalysis/._*
+7_pyevaporate/._*
+1_emitterCreation/._*
+2_validityChecks/._*
+._*

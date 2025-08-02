@@ -1,0 +1,35 @@
+# full LAMMPS script for background checks
+
+# initialization
+echo                both
+units               metal
+dimension           3
+atom_style          atomic
+boundary            p p p
+
+# atom definition
+read_data          readEmitter.lmp
+
+# force field settings
+pair_style         eam/alloy
+pair_coeff         * * ../../resources/potentials/Al99.eam.alloy Al
+
+# energy minimization
+min_style          cg
+minimize           0.0 1e-10 50000 5000000
+
+reset_timestep     0
+# thermostat settings - npt ensemble (constant pressure, constant temperature)
+velocity           all create 50 4928459 dist gaussian
+fix                1 all npt temp 50 50 0.1 iso 0.0 0.0 1.0
+thermo_style       custom step temp press vol pe etotal lx ly lz
+thermo_modify      line yaml
+thermo             100
+
+# compute radial distribution function with 100 bins
+compute            1 all rdf 100
+fix                2 all ave/time 100 1 100 c_1[*] file rdfOutput.yaml mode vector # dump every 100 steps
+
+# run simulation
+run                10000
+write_data         final_structure.lmp

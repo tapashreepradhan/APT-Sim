@@ -1,0 +1,168 @@
+LAMMPS (4 Feb 2025)
+# lammps script for generation of a conical emitter with 10 nm radius with (110) orientation
+# the script will generate three files: Material.txt, Vaccum.txt, Fixed.txt
+# Material.txt: contains the atoms of the emitter
+# Vaccum.txt: contains the lattice points of the vaccum region
+# Fixed.txt: contains the lattice points of the fixed region
+
+# intialization of the simulation settings
+echo                both
+units               metal
+dimension           3
+atom_style          atomic
+boundary            f f f
+
+# atom definition for emitter
+region             both block 0 400 0 400 0 800
+region             shaft cylinder z 200 200 110 0 200
+region             top sphere 200 200 200 110
+region             apttip union 2 top shaft
+
+# inner solid region (material)
+region             innertop sphere 200 200 200 79.5
+region             innerbot cone z 200 200 100 80 0 200
+region             innertip union 2 innertop innerbot
+
+# fixing base layer
+region             special cylinder z 200 200 110 0 1
+region             bottom block 0 400 0 400 0 1
+
+create_box         1 both ## change the value from 1 to 2 for two atom types
+Created orthogonal box = (0 0 0) to (400 400 800)
+  1 by 1 by 1 MPI processor grid
+
+# orientation of the emitter
+lattice            bcc 3.165 orient x 1 0 -1 orient y 0 1 0 orient z 1 0 1
+Lattice spacing in x,y,z = 4.4759859 3.165 4.4759859
+create_atoms       1 region both ## means the emitter is made of type 1 atoms
+Created 8066124 atoms
+  using lattice units in orthogonal box = (0 0 0) to (400 400 800)
+  create_atoms CPU = 0.399 seconds
+
+# force field settings
+pair_style         eam/fs
+pair_coeff         * * ../../../resources/potentials/W_MNB_JPCM17.eam.fs W ## give the name of the elements to be used in the simulation
+
+# group definitions to cut out the emitter
+group              sim region apttip
+654854 atoms in group sim
+group              kill subtract all sim
+7411270 atoms in group kill
+delete_atoms       group kill
+Deleted 7411270 atoms, new total = 654854
+
+group              material region innertip
+388298 atoms in group material
+set                group material type/fraction 1 0.02 1394 ## change the value of the type to 2 for two atom types
+Setting atom values ...
+  7729 settings made for type/fraction
+group              prefixed region special
+2116 atoms in group prefixed
+group              fixed subtract prefixed material
+354 atoms in group fixed
+group              vaccum subtract sim material fixed
+266202 atoms in group vaccum
+group              freeze region bottom
+2116 atoms in group freeze
+
+# output configuration
+thermo_style       custom step temp press vol pe etotal pxx pyy pzz lx lz
+thermo_modify      lost ignore
+thermo             100
+
+# energy minimization of the structure
+fix                1 freeze setforce NULL NULL 0
+min_style          cg
+#min_modify         line forcezero
+minimize           0.0 1e-10 50000 5000000
+Neighbor list info ...
+  update: every = 1 steps, delay = 0 steps, check = yes
+  max neighbors/atom: 2000, page size: 100000
+  master list distance cutoff = 6.403
+  ghost atom cutoff = 6.403
+  binsize = 3.2015, bins = 125 125 250
+  1 neighbor lists, perpetual/occasional/extra = 1 0 0
+  (1) pair eam/fs, perpetual
+      attributes: half, newton on
+      pair build: half/bin/atomonly/newton
+      stencil: half/bin/3d
+      bin: standard
+Per MPI rank memory allocation (min/avg/max) = 2073 | 2073 | 2073 Mbytes
+   Step          Temp          Press          Volume         PotEng         TotEng          Pxx            Pyy            Pzz             Lx             Lz      
+         0   0             -1010.7734      1.28e+08      -5763038.9     -5763038.9     -1000.2634     -1022.7981     -1009.2588      400            800          
+       100   0             -428.35597      1.28e+08      -5764794.4     -5764794.4     -318.26683     -361.97763     -604.82345      400            800          
+       192   0             -328.99717      1.28e+08      -5764847.9     -5764847.9     -206.35127     -234.65112     -545.98912      400            800          
+Loop time of 35.2765 on 1 procs for 192 steps with 654853 atoms
+
+99.0% CPU use with 1 MPI tasks x no OpenMP threads
+
+Minimization stats:
+  Stopping criterion = linesearch alpha is zero
+  Energy initial, next-to-last, final = 
+     -5763038.90725146  -5764855.98671687  -5764847.91702775
+  Force two-norm initial, final = 205.33711 3.6347849
+  Force max component initial, final = 1.3247131 0.69640717
+  Final line search alpha, max atom move = 6.6215712e-10 4.6113096e-10
+  Iterations, force evaluations = 192 318
+
+MPI task timing breakdown:
+Section |  min time  |  avg time  |  max time  |%varavg| %total
+---------------------------------------------------------------
+Pair    | 29.135     | 29.135     | 29.135     |   0.0 | 82.59
+Neigh   | 3.5799     | 3.5799     | 3.5799     |   0.0 | 10.15
+Comm    | 0.010908   | 0.010908   | 0.010908   |   0.0 |  0.03
+Output  | 0.0013785  | 0.0013785  | 0.0013785  |   0.0 |  0.00
+Modify  | 0.062729   | 0.062729   | 0.062729   |   0.0 |  0.18
+Other   |            | 2.487      |            |       |  7.05
+
+Nlocal:         654853 ave      654853 max      654853 min
+Histogram: 1 0 0 0 0 0 0 0 0 0
+Nghost:              0 ave           0 max           0 min
+Histogram: 1 0 0 0 0 0 0 0 0 0
+Neighs:    2.03508e+07 ave 2.03508e+07 max 2.03508e+07 min
+Histogram: 1 0 0 0 0 0 0 0 0 0
+
+Total # of neighbors = 20350782
+Ave neighs/atom = 31.076871
+Neighbor list builds = 15
+Dangerous builds = 0
+
+# dumping the configuration settings into output files
+reset_timestep     0
+dump               1 material custom 1 Material.txt x y z type
+dump               2 vaccum custom 1 Vaccum.txt x y z type
+dump               3 fixed custom 1 Fixed.txt x y z type
+run                0
+WARNING: No fixes with time integration, atoms won't move (src/verlet.cpp:60)
+WARNING: Dump 1 includes no atom IDs and is not sorted by ID. This may complicate post-processing tasks or visualization (src/dump.cpp:220)
+WARNING: Dump 2 includes no atom IDs and is not sorted by ID. This may complicate post-processing tasks or visualization (src/dump.cpp:220)
+WARNING: Dump 3 includes no atom IDs and is not sorted by ID. This may complicate post-processing tasks or visualization (src/dump.cpp:220)
+Per MPI rank memory allocation (min/avg/max) = 1518 | 1518 | 1518 Mbytes
+   Step          Temp          Press          Volume         PotEng         TotEng          Pxx            Pyy            Pzz             Lx             Lz      
+         0   0             -328.99717      1.28e+08      -5764847.9     -5764847.9     -206.35127     -234.65112     -545.98912      400            800          
+Loop time of 4.58e-07 on 1 procs for 0 steps with 654853 atoms
+
+218.3% CPU use with 1 MPI tasks x no OpenMP threads
+
+MPI task timing breakdown:
+Section |  min time  |  avg time  |  max time  |%varavg| %total
+---------------------------------------------------------------
+Pair    | 0          | 0          | 0          |   0.0 |  0.00
+Neigh   | 0          | 0          | 0          |   0.0 |  0.00
+Comm    | 0          | 0          | 0          |   0.0 |  0.00
+Output  | 0          | 0          | 0          |   0.0 |  0.00
+Modify  | 0          | 0          | 0          |   0.0 |  0.00
+Other   |            | 4.58e-07   |            |       |100.00
+
+Nlocal:         654853 ave      654853 max      654853 min
+Histogram: 1 0 0 0 0 0 0 0 0 0
+Nghost:              0 ave           0 max           0 min
+Histogram: 1 0 0 0 0 0 0 0 0 0
+Neighs:    2.03508e+07 ave 2.03508e+07 max 2.03508e+07 min
+Histogram: 1 0 0 0 0 0 0 0 0 0
+
+Total # of neighbors = 20350787
+Ave neighs/atom = 31.076878
+Neighbor list builds = 0
+Dangerous builds = 0
+Total wall time: 0:00:36

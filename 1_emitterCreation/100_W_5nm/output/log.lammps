@@ -1,0 +1,176 @@
+LAMMPS (4 Feb 2025)
+# lammps script for generation of a conical emitter with 5 nm radius with (100) orientation
+# the script will generate three files: Material.txt, Vaccum.txt, Fixed.txt
+# Material.txt: inner conical + spherical tip (solid center)
+# Vaccum.txt: outer emitter shape (shaft + spherical cap) minus material (hollow shell),
+# Fixed.txt: contains the lattice points of the fixed region
+
+# intialization of the simulation settings
+echo                both
+units               metal
+dimension           3
+atom_style          atomic
+boundary            f f f
+
+# atom definition for emitter
+region             both block 0 400 0 400 0 800
+region             shaft cylinder z 200 200 55 0 200
+region             top sphere 200 200 200 55
+region             apttip union 2 top shaft
+
+region             innertop sphere 200 200 200 50
+region             innerbot cylinder z 200 200 50 0 200
+region             special cylinder z 200 200 50 0 1
+region             innertip union 2 innertop innerbot
+region             bottom block 0 400 0 400 0 1
+
+
+create_box         1 both ## change the value from 1 to 2 for two atom types
+Created orthogonal box = (0 0 0) to (400 400 800)
+  1 by 1 by 1 MPI processor grid
+
+# orientation of the emitter
+lattice            bcc 3.165 orient x 1 0 0 orient y 0 1 0 orient z 0 0 1
+Lattice spacing in x,y,z = 3.165 3.165 3.165
+create_atoms       1 region both ## means the emitter is made of type 1 atoms
+Created 8097265 atoms
+  using lattice units in orthogonal box = (0 0 0) to (400 400 800)
+  create_atoms CPU = 0.253 seconds
+
+# force field settings
+pair_style         eam/fs
+pair_coeff         * * ../../../resources/potentials/W_MNB_JPCM17.eam.fs W ## give the name of the elements to be used in the simulation
+
+# group definitions to cut out the emitter
+group              sim region apttip
+142566 atoms in group sim
+group              kill subtract all sim
+7954699 atoms in group kill
+delete_atoms       group kill
+Deleted 7954699 atoms, new total = 142566
+
+# material = solid cone + tip inside emitter
+group              material region innertip
+116135 atoms in group material
+set                group material type/fraction 1 0.02 1394 ## change the value of the type to 2 for two atom types
+Setting atom values ...
+  2329 settings made for type/fraction
+
+# Fixed region = bottom layer excluding special and material
+group              prefixed region special
+780 atoms in group prefixed
+group              fixed subtract prefixed material
+0 atoms in group fixed
+
+# vaccum = emitter shell minus solid core and fixed base
+group              vaccum subtract sim material fixed
+26431 atoms in group vaccum
+group              freeze region bottom
+953 atoms in group freeze
+
+# output configuration
+thermo_style       custom step temp press vol pe etotal pxx pyy pzz lx lz
+thermo_modify      lost ignore
+thermo             100
+
+# energy minimization of the structure
+fix                1 freeze setforce NULL NULL 0
+min_style          cg
+minimize           0.0 1e-10 50000 5000000
+Neighbor list info ...
+  update: every = 1 steps, delay = 0 steps, check = yes
+  max neighbors/atom: 2000, page size: 100000
+  master list distance cutoff = 6.403
+  ghost atom cutoff = 6.403
+  binsize = 3.2015, bins = 125 125 250
+  1 neighbor lists, perpetual/occasional/extra = 1 0 0
+  (1) pair eam/fs, perpetual
+      attributes: half, newton on
+      pair build: half/bin/atomonly/newton
+      stencil: half/bin/3d
+      bin: standard
+Per MPI rank memory allocation (min/avg/max) = 2015 | 2015 | 2015 Mbytes
+   Step          Temp          Press          Volume         PotEng         TotEng          Pxx            Pyy            Pzz             Lx             Lz      
+         0   0             -350.80063      1.28e+08      -1244819.3     -1244819.3     -316.59003     -316.59003     -419.22183      400            800          
+       100   0             -36.682716      1.28e+08      -1245258.9     -1245258.9     -6.7074706     -6.7074706     -96.633207      400            800          
+       200   0             -3.0229954      1.28e+08      -1245270.5     -1245270.5     -0.65105973    -0.65105973    -7.7668667      400            800          
+       300   0             -1.2271836      1.28e+08      -1245270.5     -1245270.5     -0.045591637   -0.045591637   -3.5903676      400            800          
+       400   0             -0.10856091     1.28e+08      -1245270.5     -1245270.5      0.0074175237   0.0074175237  -0.34051776     400            800          
+       500   0              0.083770744    1.28e+08      -1245270.6     -1245270.6     -0.0093874155  -0.0093874155   0.27008706     400            800          
+       600   0              0.088452715    1.28e+08      -1245270.6     -1245270.6     -0.01989015    -0.01989015     0.30513845     400            800          
+       700   0              0.081418895    1.28e+08      -1245270.6     -1245270.6     -0.011540547   -0.011540547    0.26733778     400            800          
+       800   0              0.016125651    1.28e+08      -1245270.6     -1245270.6      0.0022005401   0.0022005401   0.043975872    400            800          
+Loop time of 32.9822 on 1 procs for 800 steps with 142566 atoms
+
+99.1% CPU use with 1 MPI tasks x no OpenMP threads
+
+Minimization stats:
+  Stopping criterion = linesearch alpha is zero
+  Energy initial, next-to-last, final = 
+      -1244819.3266566  -1245270.55113768  -1245270.55113768
+  Force two-norm initial, final = 102.31784 0.0016881477
+  Force max component initial, final = 1.0467954 0.00016931622
+  Final line search alpha, max atom move = 0.00390625 6.613915e-07
+  Iterations, force evaluations = 800 1615
+
+MPI task timing breakdown:
+Section |  min time  |  avg time  |  max time  |%varavg| %total
+---------------------------------------------------------------
+Pair    | 30.692     | 30.692     | 30.692     |   0.0 | 93.06
+Neigh   | 0          | 0          | 0          |   0.0 |  0.00
+Comm    | 0.00048454 | 0.00048454 | 0.00048454 |   0.0 |  0.00
+Output  | 0.0022402  | 0.0022402  | 0.0022402  |   0.0 |  0.01
+Modify  | 0.070507   | 0.070507   | 0.070507   |   0.0 |  0.21
+Other   |            | 2.217      |            |       |  6.72
+
+Nlocal:         142566 ave      142566 max      142566 min
+Histogram: 1 0 0 0 0 0 0 0 0 0
+Nghost:              0 ave           0 max           0 min
+Histogram: 1 0 0 0 0 0 0 0 0 0
+Neighs:    4.33333e+06 ave 4.33333e+06 max 4.33333e+06 min
+Histogram: 1 0 0 0 0 0 0 0 0 0
+
+Total # of neighbors = 4333328
+Ave neighs/atom = 30.395242
+Neighbor list builds = 0
+Dangerous builds = 0
+
+# dumping the configuration settings into output files
+reset_timestep     0
+dump               1 material custom 1 Material.txt x y z type
+dump               2 vaccum custom 1 Vaccum.txt x y z type
+dump               3 fixed custom 1 Fixed.txt x y z type
+run                0
+WARNING: No fixes with time integration, atoms won't move (src/verlet.cpp:60)
+WARNING: Dump 1 includes no atom IDs and is not sorted by ID. This may complicate post-processing tasks or visualization (src/dump.cpp:220)
+WARNING: Dump 2 includes no atom IDs and is not sorted by ID. This may complicate post-processing tasks or visualization (src/dump.cpp:220)
+WARNING: Dump 3 includes no atom IDs and is not sorted by ID. This may complicate post-processing tasks or visualization (src/dump.cpp:220)
+Per MPI rank memory allocation (min/avg/max) = 1458 | 1458 | 1458 Mbytes
+   Step          Temp          Press          Volume         PotEng         TotEng          Pxx            Pyy            Pzz             Lx             Lz      
+         0   0              0.016125651    1.28e+08      -1245270.6     -1245270.6      0.0022005401   0.0022005401   0.043975872    400            800          
+Loop time of 6.67e-07 on 1 procs for 0 steps with 142566 atoms
+
+149.9% CPU use with 1 MPI tasks x no OpenMP threads
+
+MPI task timing breakdown:
+Section |  min time  |  avg time  |  max time  |%varavg| %total
+---------------------------------------------------------------
+Pair    | 0          | 0          | 0          |   0.0 |  0.00
+Neigh   | 0          | 0          | 0          |   0.0 |  0.00
+Comm    | 0          | 0          | 0          |   0.0 |  0.00
+Output  | 0          | 0          | 0          |   0.0 |  0.00
+Modify  | 0          | 0          | 0          |   0.0 |  0.00
+Other   |            | 6.67e-07   |            |       |100.00
+
+Nlocal:         142566 ave      142566 max      142566 min
+Histogram: 1 0 0 0 0 0 0 0 0 0
+Nghost:              0 ave           0 max           0 min
+Histogram: 1 0 0 0 0 0 0 0 0 0
+Neighs:    4.33333e+06 ave 4.33333e+06 max 4.33333e+06 min
+Histogram: 1 0 0 0 0 0 0 0 0 0
+
+Total # of neighbors = 4333328
+Ave neighs/atom = 30.395242
+Neighbor list builds = 0
+Dangerous builds = 0
+Total wall time: 0:00:33
